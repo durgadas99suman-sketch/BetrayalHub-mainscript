@@ -666,14 +666,14 @@ UIFramework.Toggle.new({
 
 UIFramework.Slider.new({
     Text = "Wire Delay", Icon = "sliders",
-    Min = 0.1, Max = 1, Step = 0.1, Decimals = 1,
+    Min = 0.01, Max = 1, Step = 0.01, Decimals = 2,
     Value = genState.nodeDelay, Parent = tabGen,
     OnChange = function(v) genState.nodeDelay = tonumber(v) or genState.nodeDelay end,
 })
 
 UIFramework.Slider.new({
     Text = "Finish Delay", Icon = "sliders",
-    Min = 0.1, Max = 1, Step = 0.1, Decimals = 1,
+    Min = 0.01, Max = 1, Step = 0.01, Decimals = 2,
     Value = genState.lineDelay, Parent = tabGen,
     OnChange = function(v) genState.lineDelay = tonumber(v) or genState.lineDelay end,
 })
