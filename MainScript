@@ -1143,9 +1143,23 @@ end
 
 local function getDaggerButton()
     local pg = lp:FindFirstChildOfClass("PlayerGui")
-    local mainUI = pg and pg:FindFirstChild("MainUI")
+    if not pg then return nil end
+    
+    local mainUI = pg:FindFirstChild("MainUI")
     local container = mainUI and mainUI:FindFirstChild("AbilityContainer")
-    return container and container:FindFirstChild("Dagger")
+    local dagger = container and container:FindFirstChild("Dagger")
+    if dagger then return dagger end
+
+    -- Fallback: Scan PlayerGui recursively for mobile or modified HUD layouts
+    for _, desc in ipairs(pg:GetDescendants()) do
+        if desc:IsA("GuiButton") then
+            local name = desc.Name:lower()
+            if name == "dagger" or name == "stab" or name:find("dagger") then
+                return desc
+            end
+        end
+    end
+    return nil
 end
 
 local function getPing()
@@ -1176,18 +1190,57 @@ local function hasLineOfSight(posA, posB, ignoreChar)
 end
 
 local function fireDaggerAbility()
+    local function triggerGuiButton(btn)
+        if not btn then return end
+
+        -- 1. Trigger executor firesignal if supported
+        if typeof(firesignal) == "function" then
+            pcall(function() firesignal(btn.Activated) end)
+            pcall(function() firesignal(btn.MouseButton1Click) end)
+            pcall(function() firesignal(btn.TouchTap) end)
+        end
+
+        -- 2. Call connected functions directly via getconnections
+        if typeof(getconnections) == "function" then
+            for _, conn in ipairs(getconnections(btn.Activated)) do
+                pcall(function() if type(conn.Function) == "function" then conn.Function() else conn:Fire() end end)
+            end
+            for _, conn in ipairs(getconnections(btn.MouseButton1Click)) do
+                pcall(function() if type(conn.Function) == "function" then conn.Function() else conn:Fire() end end)
+            end
+            for _, conn in ipairs(getconnections(btn.TouchTap)) do
+                pcall(function() if type(conn.Function) == "function" then conn.Function() else conn:Fire() end end)
+            end
+        end
+
+        -- 3. Invoke standard Roblox GuiButton activation method
+        pcall(function() if btn.Activate then btn:Activate() end end)
+    end
+
     local function doOneFire()
+        -- Direct RemoteEvent invocation sending string and buffer formats
         local re = getRemoteEvent()
         if re then
-            pcall(function() re:FireServer("UseActorAbility",{[1]=buffer.fromstring("\3\5\0\0\0Dagger")}) end)
-            pcall(function() re:FireServer("UseActorAbility",{[1]=buffer.fromstring("\3\4\0\0\0Stab")}) end)
+            -- Raw string payloads
+            pcall(function() re:FireServer("UseActorAbility", { "\3\5\0\0\0Dagger" }) end)
+            pcall(function() re:FireServer("UseActorAbility", { "\3\4\0\0\0Stab" }) end)
+            
+            -- Luau buffer payloads
+            pcall(function() re:FireServer("UseActorAbility", { buffer.fromstring("\3\5\0\0\0Dagger") }) end)
+            pcall(function() re:FireServer("UseActorAbility", { buffer.fromstring("\3\4\0\0\0Stab") }) end)
+            
+            -- Single argument string payloads
+            pcall(function() re:FireServer("UseActorAbility", "Dagger") end)
+            pcall(function() re:FireServer("UseActorAbility", "Stab") end)
         end
+
+        -- UI button signal invocation
         local btn = getDaggerButton()
         if btn then
-            pcall(function() if btn.Activate then btn:Activate() end end)
-            pcall(function() if btn.Activated then btn.Activated:Fire() end end)
+            triggerGuiButton(btn)
         end
     end
+
     doOneFire()
     if tt.triggerFlash and doTriggerFlash then task.spawn(doTriggerFlash) end
     if tt.doubleStab then task.wait(0.18); doOneFire() end
